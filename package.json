@@ -1,0 +1,16 @@
+{
+  "name": "cs-ai-collections-caller",
+  "version": "1.0.0",
+  "description": "This robot will be used 4 times a day to call specific customers \r First commit (VS CODE)\r Second commit (AWS Test)\r Third commit (AWS Again)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "google-auth-library": "^9.6.3",
+    "google-spreadsheet": "^4.1.1"
+  }
+}
