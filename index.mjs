@@ -4,6 +4,10 @@ import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import fetch from 'node-fetch';
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled rejection:', reason);
+});
+
 const globals = {
     OPENAI_APIKEY:  'Bearer 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',
     ZDDOMAIN:       'central-supportdesk.zendesk.com',
@@ -27,6 +31,41 @@ const assembleResponse = async (status, message) => {
         if (globals.LOGMODE) console.log(`Assembling Response: ${JSON.stringify(object,null,2)}` )
     return object;
 };
+
+const convertToMatrix = (row) => {
+    return row.map(
+        index => { let array = Object.values(index)[2]
+            return array; 
+        }  
+    );
+}
+
+const filterMatrix = (row, shift) => {
+    return row.filter(row => row[8] === shift);
+}
+
+const makeCall = async (phoneNumber) => {
+    const url = `https://voiceflow-twilio-collections.replit.app/ivr/call?phone=${phoneNumber}`;
+    const headers = {
+      "Content-Type": "application/json"
+    };
+  
+    const payload = {};
+  
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      console.log('Call Made:', data);
+      return data;
+    } catch (error) {
+      console.error('Call error:', error);
+      throw error;
+    }
+  };
 
 export const handler = async (event, context) => {
 
@@ -64,18 +103,23 @@ export const handler = async (event, context) => {
 
 
     await activeSheet.loadCells('A1:Z');
-
-    if (globals.LOGMODE) console.log(`Step 3: Getting the rows content from the aforementioned activesheet`)
     let rows = await activeSheet.getRows();
+    let matrix = convertToMatrix(rows); // In this moment, I have a matrix that starts with A2 and ends with P-whatever.
 
-    console.log(rows);
-
-    // if (globals.LOGMODE) console.log(`Step 4: Convert to a matrix`)
-    // let matrix = convertToMatrix(rows); // In this moment, I have a matrix that starts with A2 and ends with P-whatever.
-
-    // if (globals.LOGMODE) console.log(`Step 5: Applying the filters and extracting the working matrix`)
     // let rowsObject = divideMatrix(matrix);
     
+    matrix = filterMatrix(matrix, shift2Call)
+
+    console.log(matrix);
+
+    for (let i = 0; i < matrix.length; i++){
+        let phone2Call = matrix[i][3]
+                        .replace(/ /g,'')
+                        .replace(/\+/g,'');
+        response = await makeCall(phone2Call)
+        console.log(`Calling customer ${matrix[i][2]} at ${phone2Call} (Shift ${matrix[i][8]}). Status: ${response.status}`)
+    }
+
     
 
 
@@ -92,7 +136,7 @@ export const handler = async (event, context) => {
 
 
 (async function() {
-    let shift = 'S1';
+    let shift = 'S4';
     let body = "{\r\n    \"shift\": \"" + shift.toString() + "\",\r\n    \"parameter\": \"true\"\r\n}";
 
     (await handler({
