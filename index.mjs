@@ -143,7 +143,7 @@ export const handler = async (event, context) => {
 
             response = await makeCall(phone2Call);
             // response = {"status": "Call initiated to"}; // ELIMINATE THIS
-            customersCalled += `[${matrix[i][2]}], `
+            customersCalled += `<${matrix[i][2]}>, `
             console.log(`Calling customer (${relativeLocation})${matrix[i][2]} at ${phone2Call} (Shift ${matrix[i][8]}). Status: ${(response.status = "Call initiated to") ? "Called Successfully" : "Called Failed"}`)
             newPeopleToCall = true;
 
