@@ -49,7 +49,7 @@ const filterMatrix = (row, shift) => {
 };
 
 const makeCall = async (phoneNumber) => {
-    addDelay(20);
+    await addDelay(20);
     const url = `${globals.CALL_LINK}?phone=${phoneNumber}`;
     const headers = {
       "Content-Type": "application/json"
