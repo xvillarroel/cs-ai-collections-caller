@@ -67,8 +67,8 @@ const makeCall = async (phoneNumber) => {
       console.log('Call Made:', data);
       return data;
     } catch (error) {
-      console.error('Call error:', error);
-      throw error;
+      console.log('Call error:', error);
+      return null;
     }
 };
 
@@ -142,17 +142,24 @@ export const handler = async (event, context) => {
         if (!alreadyCalled){ 
 
             response = await makeCall(phone2Call);
-            // response = {"status": "Call initiated to"}; // ELIMINATE THIS
+            if (!response){
+
+                console.log(`There was an error calling ${phone2Call}. Skipping.`)
+
+            } else {
+
             console.log(`Calling customer (${relativeLocation})${matrix[i][2]} at ${phone2Call} (Shift ${matrix[i][8]}). Status: ${(response.status = "Call initiated to") ? "Called Successfully" : "Called Failed"}`)
             newPeopleToCall = true;
 
-            if (response.status.search('Call initiated to') > -1) { //If that response exist.
-                
-                customersCalled += `<${matrix[i][2]}>, `
-                console.log(response.status);
-                rows[location].set('Called', true);
-                rows[location].set('AP Contact Number', `'+${phone2Call.toString()}`);
-                await rows[location].save();
+                if (response.status.search('Call initiated to') > -1) { //If that response exist.
+                    
+                    customersCalled += `<${matrix[i][2]}>, `
+                    console.log(response.status);
+                    rows[location].set('Called', true);
+                    rows[location].set('AP Contact Number', `'+${phone2Call.toString()}`);
+                    await rows[location].save();
+
+                }
 
             }
 
