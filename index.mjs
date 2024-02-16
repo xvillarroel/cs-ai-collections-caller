@@ -143,12 +143,12 @@ export const handler = async (event, context) => {
 
             response = await makeCall(phone2Call);
             // response = {"status": "Call initiated to"}; // ELIMINATE THIS
-            customersCalled += `<${matrix[i][2]}>, `
             console.log(`Calling customer (${relativeLocation})${matrix[i][2]} at ${phone2Call} (Shift ${matrix[i][8]}). Status: ${(response.status = "Call initiated to") ? "Called Successfully" : "Called Failed"}`)
             newPeopleToCall = true;
 
             if (response.status.search('Call initiated to') > -1) { //If that response exist.
-
+                
+                customersCalled += `<${matrix[i][2]}>, `
                 console.log(response.status);
                 rows[location].set('Called', true);
                 rows[location].set('AP Contact Number', `'+${phone2Call.toString()}`);
