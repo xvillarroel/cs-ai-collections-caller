@@ -70,8 +70,22 @@ const makeCall = async (phoneNumber, txNumber) => {
     }
 };
 
-function getColumnIndex(array, searchString) {
+const getColumnIndex = (array, searchString) => {
     return array.indexOf(searchString);
+}
+
+const countCalls = (array, phoneNumber, columnAPContactNumber, columnCalled) => {
+    let count = 0; 
+    if (phoneNumber.indexOf('+') < 0){
+        phoneNumber = `+${phoneNumber}`;
+    }
+
+    array.forEach(row => {
+        if (row[columnAPContactNumber] === phoneNumber && row[columnCalled] === 'TRUE') {
+        count++;
+        }
+    });
+    return count;
 }
 
 export const handler = async (event, context) => {  
@@ -133,6 +147,12 @@ export const handler = async (event, context) => {
     for (let rowIndex = 0; rowIndex < rawMatrix.length; rowIndex++){
 
         let phone2Call = rawMatrix[rowIndex][columnAPContactNumber].replace(/ /g,'').replace(/\+/g,'');
+
+        if (countCalls(rawMatrix, phone2Call, columnAPContactNumber, columnCalled) >= 4) {
+            console.log(`${phone2Call} has been called 4 times. Skipping.`);
+            continue; //Skips this iteration and does not call the number. 
+        }
+
         let alreadyCalled = (rawMatrix[rowIndex][columnCalled] === 'FALSE') ? false : true;
         let relativerowIndex = rowIndex + 2;
         let shiftValue = rawMatrix[rowIndex][columnShift];
@@ -155,7 +175,7 @@ export const handler = async (event, context) => {
             } 
         } else {
             if (shiftValue === shift2Call){ 
-                console.log(`(${relativerowIndex}) ${rawMatrix[rowIndex][columnCompanyName]} (${phone2Call}) was already called.${alreadyCalled}`)
+                console.log(`(${relativerowIndex}) ${rawMatrix[rowIndex][columnCompanyName]} (${phone2Call}) was already called.`)
             }
         }
         alreadyCalled = false;
@@ -177,53 +197,53 @@ export const handler = async (event, context) => {
 
 };
 
-let autoCallerShift = 'S1';
-(async function(shift) {
+// let autoCallerShift = 'S1';
+// (async function(shift) {
 
-    let body = JSON.stringify({
-        shift: shift, 
-        test_mode: true, 
-    });
+//     let body = JSON.stringify({
+//         shift: shift, 
+//         test_mode: false, 
+//     });
 
-    (await handler({
-        "version": "2.0",
-        "routeKey": "$default",
-        "rawPath": "/",
-        "rawQueryString": "",
-        "headers": {
-            "content-length": "31",
-            "x-amzn-tls-version": "TLSv1.2",
-            "x-forwarded-proto": "https",
-            "postman-token": "10af8a54-d2c6-4d15-9c58-efbbcad5d9ce",
-            "x-forwarded-port": "443",
-            "x-forwarded-for": "181.43.127.230",
-            "accept": "*/*",
-            "x-amzn-tls-cipher-suite": "ECDHE-RSA-AES128-GCM-SHA256",
-            "x-amzn-trace-id": "Root=1-65ae9dcb-7fcbc611605448014d81fad9",
-            "host": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
-            "content-type": "application/json",
-            "accept-encoding": "gzip, deflate, br",
-            "user-agent": "PostmanRuntime/7.36.1"
-        },
-        "requestContext": {
-            "accountId": "anonymous",
-            "apiId": "lopwygpie4ijxb7a3furyd57ni0oumpb",
-            "domainName": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
-            "domainPrefix": "lopwygpie4ijxb7a3furyd57ni0oumpb",
-            "http": {
-                "method": "POST",
-                "path": "/",
-                "protocol": "HTTP/1.1",
-                "sourceIp": "181.43.127.230",
-                "userAgent": "PostmanRuntime/7.36.1"
-            },
-            "requestId": "a985a8f1-9ce0-4f67-bdb6-c8af045dadba",
-            "routeKey": "$default",
-            "stage": "$default",
-            "time": "22/Jan/2024:16:54:35 +0000",
-            "timeEpoch": 1705942475796
-        },
-        "body": body,
-        "isBase64Encoded": false
-    }));
-})(autoCallerShift);
+//     (await handler({
+//         "version": "2.0",
+//         "routeKey": "$default",
+//         "rawPath": "/",
+//         "rawQueryString": "",
+//         "headers": {
+//             "content-length": "31",
+//             "x-amzn-tls-version": "TLSv1.2",
+//             "x-forwarded-proto": "https",
+//             "postman-token": "10af8a54-d2c6-4d15-9c58-efbbcad5d9ce",
+//             "x-forwarded-port": "443",
+//             "x-forwarded-for": "181.43.127.230",
+//             "accept": "*/*",
+//             "x-amzn-tls-cipher-suite": "ECDHE-RSA-AES128-GCM-SHA256",
+//             "x-amzn-trace-id": "Root=1-65ae9dcb-7fcbc611605448014d81fad9",
+//             "host": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
+//             "content-type": "application/json",
+//             "accept-encoding": "gzip, deflate, br",
+//             "user-agent": "PostmanRuntime/7.36.1"
+//         },
+//         "requestContext": {
+//             "accountId": "anonymous",
+//             "apiId": "lopwygpie4ijxb7a3furyd57ni0oumpb",
+//             "domainName": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
+//             "domainPrefix": "lopwygpie4ijxb7a3furyd57ni0oumpb",
+//             "http": {
+//                 "method": "POST",
+//                 "path": "/",
+//                 "protocol": "HTTP/1.1",
+//                 "sourceIp": "181.43.127.230",
+//                 "userAgent": "PostmanRuntime/7.36.1"
+//             },
+//             "requestId": "a985a8f1-9ce0-4f67-bdb6-c8af045dadba",
+//             "routeKey": "$default",
+//             "stage": "$default",
+//             "time": "22/Jan/2024:16:54:35 +0000",
+//             "timeEpoch": 1705942475796
+//         },
+//         "body": body,
+//         "isBase64Encoded": false
+//     }));
+// })(autoCallerShift);
