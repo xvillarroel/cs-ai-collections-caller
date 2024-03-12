@@ -159,6 +159,7 @@ export const handler = async (event, context) => {
 
         if (!alreadyCalled){ 
             if (shiftValue === shift2Call){ 
+
                 response = await makeCall(phone2Call, rawMatrix[rowIndex][columnTxNumber]);
                 if (!response){
                     console.log(`There was an error calling ${phone2Call}. Skipping.`);
@@ -197,7 +198,7 @@ export const handler = async (event, context) => {
 
 };
 
-// let autoCallerShift = 'S1';
+// let autoCallerShift = 'S3';
 // (async function(shift) {
 
 //     let body = JSON.stringify({
