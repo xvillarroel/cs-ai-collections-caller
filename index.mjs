@@ -11,9 +11,10 @@ process.on('unhandledRejection', (reason, promise) => {
 const globals = {
     ZDDOMAIN:           'central-supportdesk.zendesk.com',
     ZDAUTH:             'Basic Y2FybG9zLmVuY2FsYWRhQHRyaWxvZ3kuY29tL3Rva2VuOmhnQTltaFFvQjlWV1dnaGV6UjZFeEdDZFlPTFZMRFp3dUlmU1RTbGE=',
-    CALL_LINK:          'https://voiceflow-twilio-collections.replit.app/ivr/call',
+    CALL_LINK:          'https://voiceflow-twilio-collections.replit.app',
 
     SHEETS_LINK:        '13rBFlGSpmXah2pzvUjYDm6xsv5tDhGFBu1q2ImvQQVk',
+    SHEETS_KEY:         'AIzaSyCO8yb8FFHwAbaJR6YmfQXKgZxkGEQjk5A',
     TAB_NAME:            'Raw',
 
     SERVICEACCOUNTAUTH: new JWT({
@@ -48,7 +49,7 @@ const convertToMatrix = (row) => {
 
 const makeCall = async (phoneNumber, txNumber) => {
     await addDelay(10);
-    const url = `${globals.CALL_LINK}?phone=${phoneNumber}&ticket=${txNumber}`;
+    const url = `${globals.CALL_LINK}/ivr/call?phone=${phoneNumber}&ticket=${txNumber}`;
     const headers = {
       "Content-Type": "application/json"
     };
@@ -70,6 +71,58 @@ const makeCall = async (phoneNumber, txNumber) => {
     }
 };
 
+const makeByPasserCall = async (phoneNumber, firstPause, digit, secondPause) => {
+    await addDelay(10);
+
+        if (phoneNumber.includes('+')) {
+            phoneNumber = phoneNumber.substring(1);
+        }
+
+    const url = `${globals.CALL_LINK}/ivr/bypass?phone=${phoneNumber}&first_silence=${firstPause}&digit=${digit}&second_silence=${secondPause}`;
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+      });
+      const data = await response.json();
+      console.log('make ByPasserCall Made:', data);
+      return data;
+    } catch (error) {
+      console.log('make ByPasserCall error:', error);
+      return null;
+    }
+};
+
+const makeAMWaiterCall = async (phoneNumber, firstPause) => {
+    await addDelay(10);
+
+        if (phoneNumber.includes('+')) {
+            phoneNumber = phoneNumber.substring(1);
+        }
+
+    const url = `${globals.CALL_LINK}/ivr/wait?phone=${phoneNumber}&first_silence=${firstPause}`;
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+      });
+      const data = await response.json();
+      console.log('make AMWaiterCall Made:', data);
+      return data;
+    } catch (error) {
+      console.log('make AMWaiterCall error:', error);
+      return null;
+    }
+};
+
 const getColumnIndex = (array, searchString) => {
     return array.indexOf(searchString);
 }
@@ -86,6 +139,49 @@ const countCalls = (array, phoneNumber, columnAPContactNumber, columnCalled) => 
         }
     });
     return count;
+}
+
+const getCrawlInfo = async (phoneNumber, columnAPContactNumber) => {
+    //https://sheets.googleapis.com/v4/spreadsheets/13rBFlGSpmXah2pzvUjYDm6xsv5tDhGFBu1q2ImvQQVk/values/Crawl!A1:Z?key=AIzaSyCO8yb8FFHwAbaJR6YmfQXKgZxkGEQjk5A
+
+    console.log(`Phone number is ${phoneNumber} (${phoneNumber.includes('+')})`);
+
+        if (!phoneNumber.includes('+')) {
+            phoneNumber = '+' + phoneNumber;
+        }
+
+    const tab = `Crawl`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${globals.SHEETS_LINK}/values/${tab}!A1:Z?key=${globals.SHEETS_KEY}`;
+    const headers = {
+      "Content-Type": "application/json"
+    };
+    //columnAPContactNumber = 1
+
+    let data = null;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+      });
+      data = await response.json();
+    } catch (error) {
+      data = null;
+      console.log(`Error 111: ${error}`)
+    }
+
+    data = data.values;
+
+    if (data) {
+        for (const row of data) {
+            if (row[columnAPContactNumber] === phoneNumber) {
+                return row;
+            }
+        }
+    }
+
+    return null;
+
 }
 
 export const handler = async (event, context) => {  
@@ -123,6 +219,7 @@ export const handler = async (event, context) => {
     let tabName = globals.TAB_NAME;
     console.log(`Title of the doc: ${doc.title}`);
     let activeSheet = doc.sheetsByTitle[tabName];
+    await activeSheet.loadHeaderRow(); 
 
         if (!activeSheet){
             response =  await assembleResponse(400,'The "Raw" tab is missing'); 
@@ -131,15 +228,34 @@ export const handler = async (event, context) => {
         }
 
     await activeSheet.loadCells('A1:Z');
+
+    let crawlSheet = doc.sheetsByTitle['Crawl'];
+    await crawlSheet.loadHeaderRow(); 
+
+        if (!crawlSheet){
+            response =  await assembleResponse(400,'The "Crawl" tab is missing'); 
+            console.log(JSON.stringify(response),null,2);
+            return response;
+        }
+
+    await crawlSheet.loadCells('A1:Z');
+
+    let headersArrayCrawlTab = crawlSheet.headerValues;
+    let columnAPContactNumberCrawlTab   = getColumnIndex(headersArrayCrawlTab, 'AP Contact Number');
+    let columnCategoryCrawlTab          = getColumnIndex(headersArrayCrawlTab, 'Category');
+    let columnFirstSilenceCrawlTab      = getColumnIndex(headersArrayCrawlTab, 'first_silence');
+    let columnSecondSilenceCrawlTab     = getColumnIndex(headersArrayCrawlTab, 'second_silence');
+    let columnButtonCrawlTab            = getColumnIndex(headersArrayCrawlTab, 'Button');
+
     let rows = await activeSheet.getRows();
     let rawMatrix = convertToMatrix(rows);
 
     let headersArray = activeSheet.headerValues;
-    let columnTxNumber          = getColumnIndex(headersArray, 'Tx Number');
-    let columnAPContactNumber   = getColumnIndex(headersArray, 'AP Contact Number');
-    let columnCalled            = getColumnIndex(headersArray, 'Called');
-    let columnCompanyName       = getColumnIndex(headersArray, 'Company Name');
-    let columnShift             = getColumnIndex(headersArray, 'Shift');
+    let columnTxNumber                  = getColumnIndex(headersArray, 'Tx Number');
+    let columnAPContactNumber           = getColumnIndex(headersArray, 'AP Contact Number');
+    let columnCalled                    = getColumnIndex(headersArray, 'Called');
+    let columnCompanyName               = getColumnIndex(headersArray, 'Company Name');
+    let columnShift                     = getColumnIndex(headersArray, 'Shift');
 
     let newPeopleToCall = false;
     let customersCalled = "";
@@ -160,13 +276,53 @@ export const handler = async (event, context) => {
         if (!alreadyCalled){ 
             if (shiftValue === shift2Call){ 
 
-                response = await makeCall(phone2Call, rawMatrix[rowIndex][columnTxNumber]);
+                let rowInCrawlerTab = await getCrawlInfo(phone2Call, columnAPContactNumberCrawlTab);
+                // console.log(`columnAPContactNumberCrawlTab = ${columnAPContactNumberCrawlTab}, rowInCrawlerTab[columnCategoryCrawlTab] = ${rowInCrawlerTab[columnCategoryCrawlTab]}`)
+
+                let objectButton;
+                let digitToPress;
+                
+                    switch (rowInCrawlerTab[columnCategoryCrawlTab]) {
+                        case '(IVR) Leave a message':
+                        case '(PASS) Human':
+                            response = await makeCall(phone2Call, rawMatrix[rowIndex][columnTxNumber]);
+                            console.log(`Call Made`);
+                            break;
+                        case '(IVR) Press buttons':
+                            // Routine for calling IVR Bypasser.
+                            objectButton = JSON.parse(rowInCrawlerTab[columnButtonCrawlTab]);
+                            digitToPress = objectButton.key.split('_')[1];
+
+                            console.log(`In this call there will be an initial pause of ${rowInCrawlerTab[columnFirstSilenceCrawlTab]} seconds, then the code will press the #${digitToPress} and after that there will be a pause again of ${rowInCrawlerTab[columnSecondSilenceCrawlTab]} seconds.`);
+
+                                if (!digitToPress) { 
+                                    console.log(`Nothing to do. Continue.`)
+                                    continue;
+                                } else { 
+                                    console.log(`phoneNumber is ${digitToPress}`) 
+                                };
+
+                            response = await makeByPasserCall(phone2Call, rowInCrawlerTab[columnFirstSilenceCrawlTab], digitToPress, rowInCrawlerTab[columnSecondSilenceCrawlTab]); 
+                            console.log(response);
+                            break;
+                        case '(IVR) Just wait':
+                            // Routine for calling IVR Just wait.
+                            console.log(`In this call there will be an initial pause of ${rowInCrawlerTab[columnFirstSilenceCrawlTab]} seconds, then it will trigger the VF flow.`);
+                            response = await makeAMWaiterCall(phone2Call, rowInCrawlerTab[columnFirstSilenceCrawlTab]); 
+                            console.log(response);
+                            break;
+                        default:
+                            console.log(`Unknown category, skipping...`)
+                            continue;
+                    }
+
                 if (!response){
                     console.log(`There was an error calling ${phone2Call}. Skipping.`);
                 } else {
-                    console.log(`(${relativerowIndex}) ${rawMatrix[rowIndex][columnCompanyName]} (${phone2Call}) Calling customer - Shift ${rawMatrix[rowIndex][columnShift]}. Status: ${((response.status.search('Call initiated to') > -1) ? "SUCCESS" : "FAIL" )}`)
+                    console.log(`(${relativerowIndex}) ${rawMatrix[rowIndex][columnCompanyName]} (${phone2Call}) Calling customer - Shift ${rawMatrix[rowIndex][columnShift]}. Status: ${((response.status.includes('Call initiated to') || response.status.includes('Call to Twilio Studio was successful')) ? "SUCCESS" : "FAIL" )}`);
+
                     newPeopleToCall = true;
-                    if (response.status.search('Call initiated to') > -1) { //If that response exist.
+                    if (response.status.includes('Call initiated to') || response.status.includes('Call to Twilio Studio was successful')) { //If that response exist.
                         customersCalled += `\n${rawMatrix[rowIndex][columnCompanyName]}, `;
                         rows[rowIndex].set('Called', true); 
                         rows[rowIndex].set('AP Contact Number', `'+${phone2Call.toString()}`);
