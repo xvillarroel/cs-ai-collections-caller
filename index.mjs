@@ -184,6 +184,44 @@ const getCrawlInfo = async (phoneNumber, columnAPContactNumber) => {
 
 }
 
+const getFirstBlankIndex = async () => {
+    //https://sheets.googleapis.com/v4/spreadsheets/13rBFlGSpmXah2pzvUjYDm6xsv5tDhGFBu1q2ImvQQVk/values/Crawl!A1:Z?key=AIzaSyCO8yb8FFHwAbaJR6YmfQXKgZxkGEQjk5A
+
+    const tab = `Crawl`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${globals.SHEETS_LINK}/values/${tab}!A1:Z?key=${globals.SHEETS_KEY}`;
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    let data = null;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+      });
+      data = await response.json();
+    } catch (error) {
+      data = null;
+      console.log(`Error 213: ${error}`)
+    }
+
+    data = data.values;
+
+    let counter = 0;
+
+    if (data) {
+        for (const row of data) {
+            if (row[0] !== "" || row[1] !== "") {
+                counter++
+            }
+        }
+    }
+
+    return (counter - 1);
+
+}
+
 export const handler = async (event, context) => {  
 
     console.log (`****************\n Starting Function - V1 (PROD VERSION) \n****************`)
@@ -240,7 +278,7 @@ export const handler = async (event, context) => {
 
     await crawlSheet.loadCells('A1:Z');
 
-    let headersArrayCrawlTab = crawlSheet.headerValues;
+    let headersArrayCrawlTab            = crawlSheet.headerValues;
     let columnAPContactNumberCrawlTab   = getColumnIndex(headersArrayCrawlTab, 'AP Contact Number');
     let columnCategoryCrawlTab          = getColumnIndex(headersArrayCrawlTab, 'Category');
     let columnFirstSilenceCrawlTab      = getColumnIndex(headersArrayCrawlTab, 'first_silence');
@@ -250,7 +288,7 @@ export const handler = async (event, context) => {
     let rows = await activeSheet.getRows();
     let rawMatrix = convertToMatrix(rows);
 
-    let headersArray = activeSheet.headerValues;
+    let headersArray                    = activeSheet.headerValues;
     let columnTxNumber                  = getColumnIndex(headersArray, 'Tx Number');
     let columnAPContactNumber           = getColumnIndex(headersArray, 'AP Contact Number');
     let columnCalled                    = getColumnIndex(headersArray, 'Called');
@@ -262,13 +300,14 @@ export const handler = async (event, context) => {
 
     for (let rowIndex = 0; rowIndex < rawMatrix.length; rowIndex++){
 
-        let phone2Call = rawMatrix[rowIndex][columnAPContactNumber].replace(/ /g,'').replace(/\+/g,'');
+        let phone2Call  = rawMatrix[rowIndex][columnAPContactNumber].replace(/ /g,'').replace(/\+/g,'');
 
-        if (countCalls(rawMatrix, phone2Call, columnAPContactNumber, columnCalled) >= 4) {
-            console.log(`${phone2Call} has been called 4 times. Skipping.`);
-            continue; //Skips this iteration and does not call the number. 
-        }
+            if (countCalls(rawMatrix, phone2Call, columnAPContactNumber, columnCalled) >= 4) {
+                console.log(`${phone2Call} has been called 4 times. Skipping.`);
+                continue; //Skips this iteration and does not call the number. 
+            }
 
+        let companyName = rawMatrix[rowIndex][columnCompanyName];
         let alreadyCalled = (rawMatrix[rowIndex][columnCalled] === 'FALSE') ? false : true;
         let relativerowIndex = rowIndex + 2;
         let shiftValue = rawMatrix[rowIndex][columnShift];
@@ -277,7 +316,21 @@ export const handler = async (event, context) => {
             if (shiftValue === shift2Call){ 
 
                 let rowInCrawlerTab = await getCrawlInfo(phone2Call, columnAPContactNumberCrawlTab);
-                // console.log(`columnAPContactNumberCrawlTab = ${columnAPContactNumberCrawlTab}, rowInCrawlerTab[columnCategoryCrawlTab] = ${rowInCrawlerTab[columnCategoryCrawlTab]}`)
+                
+                    if (rowInCrawlerTab === null){
+                        // If the number we want to call from tab Raw does not exist in tab Crawl, I mean, if we don't have information about this number...
+                        let rowsCrawlTab = await crawlSheet.getRows();
+                        let indexCrawlTab = await getFirstBlankIndex();
+                        console.log(`Index to write = ${indexCrawlTab + 2}, Info: ${companyName} & ${phone2Call}`)
+
+                        rowsCrawlTab[indexCrawlTab].set('Company Name', companyName); 
+                        rowsCrawlTab[indexCrawlTab].set('AP Contact Number', `'+${phone2Call}`);
+                        rowsCrawlTab[indexCrawlTab].set('Shift', shiftValue);
+                        rowsCrawlTab[indexCrawlTab].set('Crawled', false);
+                        
+                        await rowsCrawlTab[indexCrawlTab].save();
+                        continue; //We skip this call cause we just added the number to the Crawl tab, which means that we don't have enough info about it. 
+                    }
 
                 let objectButton;
                 let digitToPress;
@@ -365,53 +418,53 @@ export const handler = async (event, context) => {
 
 };
 
-// let autoCallerShift = 'S3';
-// (async function(shift) {
+let autoCallerShift = 'S2';
+(async function(shift) {
 
-//     let body = JSON.stringify({
-//         shift: shift, 
-//         test_mode: false, 
-//     });
+    let body = JSON.stringify({
+        shift: shift, 
+        test_mode: false, 
+    });
 
-//     (await handler({
-//         "version": "2.0",
-//         "routeKey": "$default",
-//         "rawPath": "/",
-//         "rawQueryString": "",
-//         "headers": {
-//             "content-length": "31",
-//             "x-amzn-tls-version": "TLSv1.2",
-//             "x-forwarded-proto": "https",
-//             "postman-token": "10af8a54-d2c6-4d15-9c58-efbbcad5d9ce",
-//             "x-forwarded-port": "443",
-//             "x-forwarded-for": "181.43.127.230",
-//             "accept": "*/*",
-//             "x-amzn-tls-cipher-suite": "ECDHE-RSA-AES128-GCM-SHA256",
-//             "x-amzn-trace-id": "Root=1-65ae9dcb-7fcbc611605448014d81fad9",
-//             "host": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
-//             "content-type": "application/json",
-//             "accept-encoding": "gzip, deflate, br",
-//             "user-agent": "PostmanRuntime/7.36.1"
-//         },
-//         "requestContext": {
-//             "accountId": "anonymous",
-//             "apiId": "lopwygpie4ijxb7a3furyd57ni0oumpb",
-//             "domainName": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
-//             "domainPrefix": "lopwygpie4ijxb7a3furyd57ni0oumpb",
-//             "http": {
-//                 "method": "POST",
-//                 "path": "/",
-//                 "protocol": "HTTP/1.1",
-//                 "sourceIp": "181.43.127.230",
-//                 "userAgent": "PostmanRuntime/7.36.1"
-//             },
-//             "requestId": "a985a8f1-9ce0-4f67-bdb6-c8af045dadba",
-//             "routeKey": "$default",
-//             "stage": "$default",
-//             "time": "22/Jan/2024:16:54:35 +0000",
-//             "timeEpoch": 1705942475796
-//         },
-//         "body": body,
-//         "isBase64Encoded": false
-//     }));
-// })(autoCallerShift);
+    (await handler({
+        "version": "2.0",
+        "routeKey": "$default",
+        "rawPath": "/",
+        "rawQueryString": "",
+        "headers": {
+            "content-length": "31",
+            "x-amzn-tls-version": "TLSv1.2",
+            "x-forwarded-proto": "https",
+            "postman-token": "10af8a54-d2c6-4d15-9c58-efbbcad5d9ce",
+            "x-forwarded-port": "443",
+            "x-forwarded-for": "181.43.127.230",
+            "accept": "*/*",
+            "x-amzn-tls-cipher-suite": "ECDHE-RSA-AES128-GCM-SHA256",
+            "x-amzn-trace-id": "Root=1-65ae9dcb-7fcbc611605448014d81fad9",
+            "host": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
+            "content-type": "application/json",
+            "accept-encoding": "gzip, deflate, br",
+            "user-agent": "PostmanRuntime/7.36.1"
+        },
+        "requestContext": {
+            "accountId": "anonymous",
+            "apiId": "lopwygpie4ijxb7a3furyd57ni0oumpb",
+            "domainName": "lopwygpie4ijxb7a3furyd57ni0oumpb.lambda-url.us-east-1.on.aws",
+            "domainPrefix": "lopwygpie4ijxb7a3furyd57ni0oumpb",
+            "http": {
+                "method": "POST",
+                "path": "/",
+                "protocol": "HTTP/1.1",
+                "sourceIp": "181.43.127.230",
+                "userAgent": "PostmanRuntime/7.36.1"
+            },
+            "requestId": "a985a8f1-9ce0-4f67-bdb6-c8af045dadba",
+            "routeKey": "$default",
+            "stage": "$default",
+            "time": "22/Jan/2024:16:54:35 +0000",
+            "timeEpoch": 1705942475796
+        },
+        "body": body,
+        "isBase64Encoded": false
+    }));
+})(autoCallerShift);
