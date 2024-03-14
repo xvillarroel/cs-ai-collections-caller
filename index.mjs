@@ -299,7 +299,7 @@ export const handler = async (event, context) => {
                                     console.log(`Nothing to do. Continue.`)
                                     continue;
                                 } else { 
-                                    console.log(`phoneNumber is ${digitToPress}`) 
+                                    console.log(`Digit to send is ${digitToPress}`) 
                                 };
 
                             response = await makeByPasserCall(phone2Call, rowInCrawlerTab[columnFirstSilenceCrawlTab], digitToPress, rowInCrawlerTab[columnSecondSilenceCrawlTab]); 
