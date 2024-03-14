@@ -167,7 +167,7 @@ const getCrawlInfo = async (phoneNumber, columnAPContactNumber) => {
       data = await response.json();
     } catch (error) {
       data = null;
-      console.log(`Error 111: ${error}`)
+      console.log(`Error 170: ${error}`)
     }
 
     data = data.values;
@@ -281,13 +281,17 @@ export const handler = async (event, context) => {
 
                 let objectButton;
                 let digitToPress;
-                
+
+                try {
                     switch (rowInCrawlerTab[columnCategoryCrawlTab]) {
+
                         case '(IVR) Leave a message':
                         case '(PASS) Human':
+                            // Routine for Normal Calls.
                             response = await makeCall(phone2Call, rawMatrix[rowIndex][columnTxNumber]);
                             console.log(`Call Made`);
                             break;
+
                         case '(IVR) Press buttons':
                             // Routine for calling IVR Bypasser.
                             objectButton = JSON.parse(rowInCrawlerTab[columnButtonCrawlTab]);
@@ -296,7 +300,7 @@ export const handler = async (event, context) => {
                             console.log(`In this call there will be an initial pause of ${rowInCrawlerTab[columnFirstSilenceCrawlTab]} seconds, then the code will press the #${digitToPress} and after that there will be a pause again of ${rowInCrawlerTab[columnSecondSilenceCrawlTab]} seconds.`);
 
                                 if (!digitToPress) { 
-                                    console.log(`Nothing to do. Continue.`)
+                                    console.log(`No digitToPress. Continue.`)
                                     continue;
                                 } else { 
                                     console.log(`Digit to send is ${digitToPress}`) 
@@ -305,16 +309,23 @@ export const handler = async (event, context) => {
                             response = await makeByPasserCall(phone2Call, rowInCrawlerTab[columnFirstSilenceCrawlTab], digitToPress, rowInCrawlerTab[columnSecondSilenceCrawlTab]); 
                             console.log(response);
                             break;
+
                         case '(IVR) Just wait':
                             // Routine for calling IVR Just wait.
                             console.log(`In this call there will be an initial pause of ${rowInCrawlerTab[columnFirstSilenceCrawlTab]} seconds, then it will trigger the VF flow.`);
                             response = await makeAMWaiterCall(phone2Call, rowInCrawlerTab[columnFirstSilenceCrawlTab]); 
                             console.log(response);
                             break;
+
                         default:
                             console.log(`Unknown category, skipping...`)
                             continue;
+
                     }
+                } catch(e) {
+                    console.log(`ERROR 326: ${e}`);
+                    continue;
+                }
 
                 if (!response){
                     console.log(`There was an error calling ${phone2Call}. Skipping.`);
